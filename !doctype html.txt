@@ -157,6 +157,39 @@
       max-width:62ch;
     }
 
+    /* Valentine Question block */
+    .valentineAsk{
+      margin-top: 14px;
+      padding: 14px;
+      border-radius: 22px;
+      background:#ffffff0a;
+      border:1px solid var(--stroke);
+    }
+    .askTitle{
+      font-weight: 900;
+      letter-spacing: -.2px;
+      font-size: 16px;
+      margin-bottom: 10px;
+      color:#ffe6ef;
+    }
+    .askBtns{
+      display:flex;
+      gap:10px;
+      align-items:center;
+      flex-wrap:wrap;
+      min-height: 64px; /* space for YES growth */
+    }
+    .askYes{
+      transform-origin: left center;
+      will-change: transform;
+    }
+    .askHint{
+      margin-top: 10px;
+      font-size: 13px;
+      color: var(--muted);
+      font-weight: 700;
+    }
+
     .infoGrid{
       margin-top:8px;
       display:grid;
@@ -432,6 +465,16 @@
           A little escape from the world — warm lights, good vibes, and a moment worth remembering.
         </p>
 
+        <!-- Valentine Question -->
+        <div class="valentineAsk" id="valentineAsk">
+          <div class="askTitle" id="askTitle">Will you be my Valentine?</div>
+          <div class="askBtns">
+            <button class="btn primary askYes" id="askYes">Yes 💖</button>
+            <button class="btn askNo" id="askNo">No 🙈</button>
+          </div>
+          <div class="askHint" id="askHint">Go on… tap one 😅</div>
+        </div>
+
         <div class="infoGrid" role="list">
           <div class="info" role="listitem">
             <div class="ico" aria-hidden="true">
@@ -605,7 +648,7 @@
 
       // Event info
       eventTitle: "Valentine’s Night",
-      // IMPORTANT: use local time format "YYYY-MM-DDTHH:MM:SS" (no Z) so it counts down correctly for your timezone
+      // Use local time format "YYYY-MM-DDTHH:MM:SS"
       eventStartLocal: "2026-02-14T20:00:00",
       durationMinutes: 180,
 
@@ -620,7 +663,7 @@
       // WhatsApp number in international format WITHOUT + (example Lebanon: 961XXXXXXXX)
       whatsappNumber: "96100000000",
 
-      // Message templates
+      // Text blocks
       quoteText: "“If you’re free, I’d love to spend that evening with you — no pressure, just a beautiful time.”",
       mini1: "<strong>Plan:</strong> A calm meet-up, a nice meal, and a small surprise.",
       mini2: "<strong>Reminder:</strong> Please RSVP so I can book the right spot.",
@@ -629,11 +672,13 @@
       sealText: "Valentine’s • Invitation",
       footerLeft: "Made with love ✨",
       footerNoteText: "Quick note",
-      quickNoteAlert: "Tip: You can customize the text + date + location in the CONFIG section at the bottom of the file."
+      quickNoteAlert: "Tip: You can customize the text + date + location in the CONFIG section."
     };
 
-    // Apply config to UI
+    // Helpers
     const $ = (id) => document.getElementById(id);
+
+    // Apply config to UI
     $("badgeText").textContent = CONFIG.badgeText;
     $("titlePrefix").textContent = CONFIG.titlePrefix;
     $("titleNames").textContent = CONFIG.titleNames;
@@ -711,7 +756,6 @@
       const end = new Date(start.getTime() + CONFIG.durationMinutes*60000);
 
       function toICSDate(d){
-        // Local -> "YYYYMMDDTHHMMSS"
         const YYYY = d.getFullYear();
         const MM = String(d.getMonth()+1).padStart(2,"0");
         const DD = String(d.getDate()).padStart(2,"0");
@@ -773,6 +817,55 @@ END:VCALENDAR`;
     modalBack.addEventListener("click", (e)=>{ if(e.target === modalBack) closeModal(); });
     window.addEventListener("keydown", (e)=>{ if(e.key === "Escape") closeModal(); });
 
+    // --- Valentine Question: NO grows YES until YES is clicked ---
+    let noClicks = 0;
+    let yesScale = 1;
+
+    const yesBtn = $("askYes");
+    const noBtn  = $("askNo");
+    const hintEl = $("askHint");
+
+    const hints = [
+      "Go on… tap one 😅",
+      "Are you sure? 👀",
+      "Ok… but look at the other button 😭",
+      "This is getting suspicious 😤",
+      "At this point it’s destiny 💗",
+      "Alright… you win. Press YES 😌"
+    ];
+
+    noBtn.addEventListener("click", () => {
+      noClicks++;
+
+      // YES grows forever (until YES is clicked)
+      yesScale += 0.18;
+      yesBtn.style.transform = `scale(${yesScale})`;
+
+      // Optional: NO shrinks a bit for extra effect
+      const noScale = Math.max(0.72, 1 - noClicks * 0.06);
+      noBtn.style.transform = `scale(${noScale})`;
+
+      hintEl.textContent = hints[Math.min(noClicks, hints.length - 1)];
+
+      // Little wiggle feedback
+      noBtn.animate(
+        [
+          { transform: `scale(${noScale}) translateX(0px)` },
+          { transform: `scale(${noScale}) translateX(-6px)` },
+          { transform: `scale(${noScale}) translateX(6px)` },
+          { transform: `scale(${noScale}) translateX(0px)` }
+        ],
+        { duration: 220, iterations: 1 }
+      );
+    });
+
+    yesBtn.addEventListener("click", () => {
+      burst();      // heart confetti
+      openModal();  // open RSVP modal
+      $("rAnswer").value = "Yes";
+      hintEl.textContent = "Yay! 💖 See you then ✨";
+    });
+
     // Build RSVP message
     function buildRSVPText(){
       const name = $("rName").value.trim() || "Someone";
@@ -816,7 +909,6 @@ END:VCALENDAR`;
         return;
       }
 
-      // Celebration if "Yes"
       if(($("rAnswer").value || "").toLowerCase().includes("yes")) burst();
 
       const url = `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
